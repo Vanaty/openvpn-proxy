@@ -1,0 +1,43 @@
+version: '3.4'
+
+services:
+  vpn:
+    image: dperson/openvpn-client
+    container_name: vpn
+    ports:
+      - 8889:8888
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      #- TZ=EST5EDT
+      # Alternatively, use: - VPN=vpn.server.name;username;password;port
+      - DNS=8.8.8.8 # Optional: Specify DNS server
+    volumes:
+      - ./vpn:/vpn # Mount your VPN config directory
+    restart: unless-stopped
+    security_opt:
+      - label:disable
+    #read_only: true
+    tmpfs:
+      - /run
+      - /tmp
+    networks:
+      - vpn-net
+
+  tinyproxy:
+    image: ajoergensen/tinyproxy
+    container_name: tinyproxy
+    environment:
+      - ALLOWED=0.0.0.0/0 # Allow all clients; restrict as needed (e.g., 192.168.1.0/24)
+    volumes:
+      - ./tinyproxy.conf:/etc/tinyproxy/tinyproxy.conf
+    network_mode: service:vpn # Route traffic through the VPN container
+    restart: unless-stopped
+    depends_on:
+      - vpn
+
+networks:
+  vpn-net:
+    driver: bridge
